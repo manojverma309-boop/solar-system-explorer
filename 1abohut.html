@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Solar System Explorer</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+/* ===== GLOBAL ===== */
+body{
+  margin:0;
+  font-family: "Segoe UI", Arial, sans-serif;
+  color:#fff;
+  height:100vh;
+  background:
+    radial-gradient(circle at top,#0b1d2a,#000),
+    url("https://images.unsplash.com/photo-1444703686981-a3abbc4d4fe3")
+    center/cover no-repeat;
+  overflow:hidden;
+}
+
+/* ===== HEADER ===== */
+header{
+  padding:20px 40px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  backdrop-filter: blur(6px);
+  background:rgba(0,0,0,0.4);
+}
+
+header h1{
+  margin:0;
+  font-size:26px;
+  letter-spacing:1px;
+}
+
+.subtitle{
+  font-size:13px;
+  opacity:0.8;
+}
+
+/* ===== NAV ===== */
+nav{
+  display:flex;
+  align-items:center;
+  gap:15px;
+}
+
+.nav-btn{
+  padding:10px 18px;
+  border:1px solid #3cf;
+  background:transparent;
+  color:#3cf;
+  border-radius:20px;
+  cursor:pointer;
+  transition:0.3s;
+}
+
+.nav-btn:hover{
+  background:#3cf;
+  color:#000;
+  box-shadow:0 0 15px #3cf;
+}
+
+/* ===== START / JOB BUTTON ===== */
+.explore-btn{
+  padding:10px 24px;
+  font-size:14px;
+  border:none;
+  border-radius:25px;
+  background:linear-gradient(45deg,#00ccff,#6f00ff);
+  color:#fff;
+  cursor:pointer;
+  box-shadow:0 0 20px rgba(0,204,255,0.7);
+  transition:0.3s;
+}
+
+.explore-btn:hover{
+  transform:scale(1.08);
+  box-shadow:0 0 35px rgba(0,204,255,1);
+}
+
+/* ===== HERO ===== */
+.hero{
+  height:calc(100vh - 90px);
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  text-align:center;
+}
+
+.hero h2{
+  font-size:48px;
+  margin-bottom:15px;
+  text-shadow:0 0 25px #00ccff;
+}
+
+.hero p{
+  max-width:600px;
+  line-height:1.6;
+  opacity:0.85;
+}
+
+/* ===== RESPONSIVE ===== */
+@media(max-width:700px){
+  header{
+    flex-direction:column;
+    gap:12px;
+  }
+  nav{
+    flex-wrap:wrap;
+    justify-content:center;
+  }
+  .hero h2{
+    font-size:32px;
+  }
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <div>
+    <h1>☀️ Solar System Explorer</h1>
+    <div class="subtitle">Interactive 3D • Scientific Data • Space Learning</div>
+  </div>
+
+  <!-- TOP RIGHT NAV + JOB BUTTON -->
+  <nav>
+    <button class="nav-btn" onclick="location.href='home.html'">Home</button>
+    <button class="nav-btn" onclick="location.href='final galaxy.html'">Explore</button>
+    <button class="nav-btn" onclick="location.href='about.html'">About</button>
+    <button class="nav-btn" onclick="location.href='contact.html'">Contact</button>
+
+    <!-- JOB / START BUTTON -->
+    <button class="explore-btn" onclick="location.href='galaxy 9.html'">
+      🚀 Start
+    </button>
+  </nav>
+</header>
+
+<section class="hero">
+  <h2>Explore the Universe</h2>
+  <p>
+    Discover planets, stars, galaxies and mysteries of the cosmos.
+    Learn science through interactive 3D space exploration.
+  </p>
+</section>
+
+</body>
+</html>

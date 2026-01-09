@@ -1,0 +1,515 @@
+
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sirius (α CMa) – Attractive Offline Sky</title>
+  <style>
+    :root{
+      --bg:#030611; --text:#eaeefb; --panel:rgba(0,0,0,.35); --border:rgba(255,255,255,.14);
+      --accent:#0ea5e9; --accent2:#6366f1; --good:#34d399;
+    }
+    html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:system-ui,Segoe UI,Arial;}
+
+    /* Deep-space animated backdrop */
+    body::before{
+      content:""; position:fixed; inset:0; z-index:-2;
+      background: radial-gradient(1200px 600px at 20% 20%, #0b1220 0%, #05080f 60%, #000 100%);
+      animation: drift 28s linear infinite; opacity:.85;
+    }
+    @keyframes drift{ 0%{filter:hue-rotate(0deg)} 50%{filter:hue-rotate(20deg) saturate(1.1)} 100%{filter:hue-rotate(0deg)} }
+
+    canvas{position:absolute;inset:0;display:block;}
+
+    /* Floating label near Sirius */
+    .label{
+      position:fixed; z-index:9; pointer-events:none; font-size:13px;
+      color:#dbeafe; text-shadow: 0 0 12px rgba(170,205,255,.5);
+      transform: translate(-50%, -50%);
+    }
+
+    /* Bottom-left Toolbar (avoid overlap with info box) */
+    .toolbar{
+      position:fixed; left:12px; bottom:12px; z-index:10;
+      display:flex; gap:.6rem; flex-wrap:wrap; align-items:center;
+      max-width:min(820px, 92vw);
+      background:linear-gradient(180deg, rgba(16,24,40,.35), rgba(8,12,24,.35));
+      border:1px solid var(--border); border-radius:14px; padding:.6rem .8rem; backdrop-filter:blur(8px);
+      box-shadow:0 20px 40px rgba(0,0,0,.35);
+      font-size:12px;
+    }
+    .pill{ padding:.35rem .6rem; border-radius:999px; border:1px solid var(--border);
+      background:rgba(255,255,255,.06); font-size:12px; }
+    .btn{
+      display:flex; align-items:center; gap:.35rem;
+      background:rgba(255,255,255,.08); color:#fff; border:1px solid var(--border);
+      padding:.42rem .68rem; border-radius:10px; cursor:pointer; user-select:none;
+      transition:background .2s, transform .06s;
+    }
+    .btn:hover{ background: rgba(99,102,241,.18) } /* violet hover */
+    .btn:active{ transform: translateY(1px) }
+    .btn svg{ width:18px; height:18px }
+
+    /* Theme modifier */
+    .deep::before{ filter: hue-rotate(40deg) saturate(1.2) brightness(1.05) }
+
+    /* ===== Bottom-right Information Box (fixed) ===== */
+    .info{
+      position:fixed; right:12px; bottom:12px; z-index:11;
+      width: min(420px, 88vw);
+      background:linear-gradient(180deg, rgba(10,16,28,.50), rgba(5,9,18,.40));
+      border:1px solid var(--border); border-radius:14px; backdrop-filter: blur(10px);
+      box-shadow: 0 22px 48px rgba(0,0,0,.45);
+      overflow:hidden; font-size:12px;
+    }
+    .info header{
+      display:flex; align-items:center; justify-content:space-between;
+      padding:.60rem .80rem;
+      background:linear-gradient(90deg, rgba(99,102,241,.25), rgba(14,165,233,.18) 60%, rgba(255,255,255,.06));
+      border-bottom:1px solid var(--border);
+    }
+    .info header .hleft{display:flex; align-items:center; gap:.55rem}
+    .info header svg{width:18px;height:18px;color:var(--accent2)}
+    .info header .titleText{font-weight:600; letter-spacing:.2px}
+    .info .content{ padding:.60rem .80rem }
+    .info .actions{ display:flex; gap:.6rem; align-items:center; margin-top:.5rem }
+    .badge{ font-size:10px; padding:.18rem .45rem; border-radius:999px; border:1px solid var(--border);
+            background: rgba(255,255,255,.06); color:#cfe2ff; }
+
+    table.info-table{
+      width:100%; border-collapse:separate; border-spacing:0;
+      font-size:12px; overflow:hidden; border-radius:10px; border:1px solid var(--border);
+      background:rgba(255,255,255,.05);
+    }
+    .info-table th, .info-table td{
+      padding:.48rem .58rem; text-align:left; vertical-align:middle;
+    }
+    .info-table th{
+      background:linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
+      color:#cfe2ff; font-weight:600;
+      border-bottom:1px solid var(--border);
+    }
+    .info-table tr:not(:last-child) td{ border-bottom:1px solid var(--border); }
+    .info-table tr:hover td{ background:rgba(99,102,241,.08); }
+    .kv{ color:#cdd7f8 }
+    .val{ color:#eef3ff }
+    .ok{ color: var(--good); }
+
+    /* Small screens */
+    @media (max-width:560px){
+      .toolbar{ left:10px; bottom:10px; max-width:calc(100vw - 28px); }
+      .info{ right:10px; bottom:10px; width:calc(100vw - 28px); margin-bottom:64px; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="sky"></canvas>
+
+  <!-- Cinematic floating label -->
+  <div id="label" class="label" style="left:50%; top:50%;">Sirius (α CMa)</div>
+
+  <!-- Bottom-right Info Box (fixed) -->
+  <div class="info" id="infoPanel">
+    <header>
+      <div class="hleft">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3a9 9 0 100 18c4.97 0 9-4.03 9-9 0-2.5-1.02-4.76-2.67-6.39A7 7 0 0112 3z"/></svg>
+        <div class="titleText">Sirius • इन्फ़ो बॉक्स</div>
+      </div>
+      <div class="badge" id="timeBadge">—</div>
+    </header>
+    <div class="content">
+      <table class="info-table" id="infoTable">
+        <thead><tr><th>Key</th><th>Value</th></tr></thead>
+        <tbody>
+          <tr><td class="kv">Name</td><td class="val">Sirius (α Canis Majoris)</td></tr>
+          <tr><td class="kv">Type</td><td class="val">A1V (bluish‑white)</td></tr>
+          <tr><td class="kv">RA (J2000)</td><td class="val" id="valRA">06h 45m 08.917s</td></tr>
+          <tr><td class="kv">Dec (J2000)</td><td class="val" id="valDec">−16° 42′ 58.02″</td></tr>
+          <tr><td class="kv">V Magnitude</td><td class="val ok">−1.46</td></tr>
+          <tr><td class="kv">Alt‑Az (Live)</td><td class="val" id="valAltAz">—</td></tr>
+          <tr><td class="kv">Observer</td><td class="val" id="valObs">Lat 23.3700°, Lon 85.3300°</td></tr>
+          <tr><td class="kv">Rise (refraction)</td><td class="val" id="valRise">—</td></tr>
+          <tr><td class="kv">Transit</td><td class="val" id="valTransit">—</td></tr>
+          <tr><td class="kv">Set (refraction)</td><td class="val" id="valSet">—</td></tr>
+          <tr><td class="kv">Twinkle Intensity</td><td class="val" id="valTwIntensity">0.40</td></tr>
+          <tr><td class="kv">Moving Stars</td><td class="val" id="valMoveFrac">35%</td></tr>
+          <tr><td class="kv">Move Speed</td><td class="val" id="valMoveSpeed">0.12</td></tr>
+        </tbody>
+      </table>
+
+      <div class="actions">
+        <button class="btn" id="geoBtn" title="Use My Location">Use My Location</button>
+        <button class="btn" id="copyInfo" title="Copy table text">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4a2 2 0 00-2 2v12h2V3h12V1zm3 4H8a2 2 0 00-2 2v14h13a2 2 0 002-2V7a2 2 0 00-2-2zm0 16H8V7h11v14z"/></svg>
+          Copy Info
+        </button>
+        <span class="badge">Theme: <span id="infTheme">Dark</span></span>
+        <span class="badge">Live</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom-left Toolbar -->
+  <div class="toolbar" id="bar">
+    <button class="btn" id="themeBtn" title="Theme: Dark/Deep Space">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3a9 9 0 100 18c4.97 0 9-4.03 9-9 0-2.5-1.02-4.76-2.67-6.39A7 7 0 0112 3z"/></svg>
+      <span id="themeLabel">Dark</span>
+    </button>
+    <div class="pill">Alt‑Az: <span id="pillAz">—</span></div>
+
+    <!-- Sliders -->
+    <label>Twinkle</label>
+    <input id="twinkleIntensity" type="range" min="0" max="1" step="0.01" value="0.40" title="Twinkle intensity">
+    <label>Move %</label>
+    <input id="moveFraction" type="range" min="0" max="1" step="0.01" value="0.35" title="Moving stars fraction">
+    <label>Move speed</label>
+    <input id="moveSpeed" type="range" min="0" max="1" step="0.01" value="0.12" title="Moving stars speed">
+  </div>
+
+  <script>
+    // ===== Canvas & resize =====
+    const canvas = document.getElementById('sky');
+    const ctx = canvas.getContext('2d');
+    function resize(){ canvas.width = window.innerWidth; canvas.height = window.innerHeight; avoidOverlap(); }
+    window.addEventListener('resize', resize); resize();
+
+    // ===== Camera/orbit & pan/zoom =====
+    let rotX = 0.3, rotY = 0.0;
+    let zoom = 1.0;
+    let panX = 0, panY = 0;
+    let panVX=0, panVY=0; // smooth inertia
+
+    // Mouse controls
+    let dragging=false, rightDrag=false, lastX=0, lastY=0;
+    canvas.addEventListener('mousedown', (e)=>{ dragging=(e.button===0); rightDrag=(e.button===2); lastX=e.clientX; lastY=e.clientY; });
+    canvas.addEventListener('mouseup', ()=>{ dragging=false; rightDrag=false; });
+    canvas.addEventListener('contextmenu', e=>e.preventDefault());
+    canvas.addEventListener('mousemove', (e)=>{
+      const dx=e.clientX-lastX, dy=e.clientY-lastY; lastX=e.clientX; lastY=e.clientY;
+      if(dragging){ rotY += dx*0.005; rotX += dy*0.005; }
+      if(rightDrag){ panX += dx; panY += dy; panVX=dx; panVY=dy; }
+    });
+    canvas.addEventListener('wheel', (e)=>{ zoom *= (1 + (e.deltaY>0?-0.08:0.08)); zoom=Math.max(0.30,Math.min(4,zoom)); });
+
+    // ===== Sirius actual data (J2000) =====
+    const DEG = Math.PI/180, H2RAD = Math.PI/12;
+    const sirius = { ra_h: 6, ra_m: 45, ra_s: 8.917, dec_d: -16, dec_m: 42, dec_s: 58.02, mag: -1.46, type:'A1V' };
+    const RA_hours = sirius.ra_h + sirius.ra_m/60 + sirius.ra_s/3600;
+    const RA_rad   = RA_hours * H2RAD;
+    const signDec  = Math.sign(sirius.dec_d) || 1;
+    const Dec_deg  = Math.abs(sirius.dec_d) + sirius.dec_m/60 + sirius.dec_s/3600;
+    const Dec_rad  = signDec * Dec_deg * DEG;
+
+    // ===== Sidereal time & Alt/Az (approx) =====
+    function julianDate(date){ return (date.getTime()/86400000) + 2440587.5; }
+    function gmst_hours(date){
+      const JD = julianDate(date), D = JD - 2451545.0;
+      let GMST = 18.697375 + 24.065709824279 * D;
+      GMST = ((GMST % 24) + 24) % 24;
+      return GMST;
+    }
+    function lst_rad(date, lon_deg){
+      const LST_hours = gmst_hours(date) + (lon_deg/15);
+      const LST = ((LST_hours % 24) + 24) % 24;
+      return LST * H2RAD;
+    }
+    function altaz(date, lat_deg, lon_deg){
+      const LST = lst_rad(date, lon_deg);
+      const phi = lat_deg * DEG;
+      const H   = LST - RA_rad;
+      const sinAlt = Math.sin(phi)*Math.sin(Dec_rad) + Math.cos(phi)*Math.cos(Dec_rad)*Math.cos(H);
+      const alt = Math.asin(sinAlt);
+      const y = -Math.sin(H)*Math.cos(Dec_rad);
+      const x =  Math.sin(Dec_rad) - Math.sin(phi)*sinAlt;
+      let az = Math.atan2(y, x);
+      az = ((az % (2*Math.PI)) + 2*Math.PI) % (2*Math.PI);
+      return { alt, az };
+    }
+    const rad2deg = r => r/DEG;
+
+    // ===== Rise / Transit / Set (with atmospheric refraction) =====
+    function rtsToday(lat_deg, lon_deg){
+      const phi = lat_deg * DEG;
+      const alt0 = -0.566 * DEG; // apparent altitude (refraction)
+      const num = Math.sin(alt0) - Math.sin(phi)*Math.sin(Dec_rad);
+      const den = Math.cos(phi)*Math.cos(Dec_rad);
+      let cosH0 = num / den;
+      if (cosH0 < -1) cosH0 = -1;
+      if (cosH0 > +1) cosH0 = +1;
+      const H0 = Math.acos(cosH0);
+
+      const LST_tran = RA_rad;
+      const LST_rise = (RA_rad - H0 + 2*Math.PI) % (2*Math.PI);
+      const LST_set  = (RA_rad + H0) % (2*Math.PI);
+
+      const now  = new Date();
+      const base = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0); // local midnight
+      const LST0 = lst_rad(base, lon_deg); // initial LST
+      const sidRate = 1.00273790935 * (2*Math.PI/24); // rad per civil hour
+
+      function toLocalTimeString(hours){
+        let h = ((hours % 24) + 24) % 24;
+        const d = new Date(base.getFullYear(), base.getMonth(), base.getDate(), 0, 0, 0);
+        d.setTime(d.getTime() + h*3600*1000);
+        return d.toLocaleTimeString();
+      }
+      const tRise = (LST_rise - LST0) / sidRate;
+      const tTran = (LST_tran - LST0) / sidRate;
+      const tSet  = (LST_set  - LST0) / sidRate;
+
+      return { rise: toLocalTimeString(tRise), transit: toLocalTimeString(tTran), set: toLocalTimeString(tSet) };
+    }
+
+    // ===== Label position =====
+    const labelEl = document.getElementById('label');
+    function updateLabelPos(){
+      labelEl.style.left = (window.innerWidth/2 + panX) + 'px';
+      labelEl.style.top  = (window.innerHeight/2 + panY - 26) + 'px';
+    }
+
+    // ===== Stylized Sirius rendering =====
+    function magToRadius(mag){
+      const base = 2.6;
+      return base * Math.pow(10, -0.4 * (mag + 1));
+    }
+    const siriusColor = () => 'rgba(170,205,255,0.95)';
+    function drawSpikes(cx, cy, size, alpha=0.22){
+      ctx.save(); ctx.translate(cx, cy); ctx.globalAlpha = alpha;
+      ctx.strokeStyle = 'rgba(170,205,255,0.9)'; ctx.lineWidth = 1.2;
+      for(let k=0;k<4;k++){ ctx.rotate(Math.PI/4); ctx.beginPath(); ctx.moveTo(-size, 0); ctx.lineTo(size, 0); ctx.stroke(); }
+      ctx.restore();
+    }
+    function drawHalo(cx, cy, r){
+      ctx.save(); ctx.globalCompositeOperation='lighter';
+      ctx.strokeStyle = 'rgba(170,205,255,0.35)'; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.arc(cx, cy, r*3.9, 0, Math.PI*2); ctx.stroke(); ctx.restore();
+    }
+
+    /* ===== Background starfield (moving subset + fixed subset, twinkle) ===== */
+    let TWINKLE = true;
+    let TWINKLE_INTENSITY = 0.40; // brightness pulsing strength
+    let MOVE_FRACTION = 0.35;     // fraction of stars that drift
+    let MOVE_SPEED    = 0.12;     // drift speed scale
+
+    const bgStars = [];
+    (function buildBG(){
+      const count = 1400, range = 900;
+      for(let i=0;i<count;i++){
+        const moving = Math.random() < MOVE_FRACTION;
+        const band=Math.random();
+        const hue = band<0.40 ? 30+Math.random()*40 : band<0.80 ? 190+Math.random()*50 : 280+Math.random()*40;
+
+        const x=(Math.random()-0.5)*range;
+        const y=(Math.random()-0.5)*range*0.6;
+        const z=(Math.random()-0.5)*range;
+
+        const vscale = MOVE_SPEED * 0.08;
+        const vx = moving ? (Math.random()-0.5)*vscale : 0;
+        const vy = moving ? (Math.random()-0.5)*vscale*0.7 : 0;
+        const vz = moving ? (Math.random()-0.5)*vscale : 0;
+
+        bgStars.push({
+          x,y,z, vx,vy,vz, moving,
+          hue, sat: 65 + Math.random()*25, light: 55 + Math.random()*20,
+          tw: 0.3+Math.random()*0.7, ph: Math.random()*Math.PI*2
+        });
+      }
+    })();
+
+    function hsl(h,s,l,a){ return `hsla(${h}, ${s}%, ${l}%, ${a})`; }
+    function rotate3D(p, ax, ay){
+      let c=Math.cos(ax), s=Math.sin(ax);
+      let y=p.y*c - p.z*s, z=p.y*s + p.z*c; p.y=y; p.z=z;
+      c=Math.cos(ay); s=Math.sin(ay);
+      let x=p.x*c + p.z*s; z=-p.x*s + p.z*c; p.x=x; p.z=z;
+      return p;
+    }
+    function project(p){
+      const d = 260/zoom, s = d/(d - p.z);
+      return { x: canvas.width/2 + panX + p.x*s, y: canvas.height/2 + panY + p.y*s, s };
+    }
+
+    // ===== Info Box wiring (theme, copy, Alt‑Az, sliders, RTS) =====
+    const timeBadge = document.getElementById('timeBadge');
+    const infTheme  = document.getElementById('infTheme');
+    const valAltAz  = document.getElementById('valAltAz');
+    const valObs    = document.getElementById('valObs');
+    const valRise   = document.getElementById('valRise');
+    const valTransit= document.getElementById('valTransit');
+    const valSet    = document.getElementById('valSet');
+    const copyInfo  = document.getElementById('copyInfo');
+    const infoTable = document.getElementById('infoTable');
+    const pillAzEl  = document.getElementById('pillAz');
+
+    const themeBtn  = document.getElementById('themeBtn');
+    const themeLabel= document.getElementById('themeLabel');
+
+    const twinkleSlider      = document.getElementById('twinkleIntensity');
+    const moveFractionSlider = document.getElementById('moveFraction');
+    const moveSpeedSlider    = document.getElementById('moveSpeed');
+
+    function updateClockBadge(){ timeBadge.textContent = new Date().toLocaleString(); }
+    updateClockBadge(); setInterval(updateClockBadge, 1000);
+
+    themeBtn.onclick  = ()=>{
+      const isDeep = document.body.classList.toggle('deep');
+      themeLabel.textContent = isDeep ? 'Deep Space' : 'Dark';
+      infTheme.textContent   = isDeep ? 'Deep Space' : 'Dark';
+    };
+
+    copyInfo.onclick = ()=>{
+      const rows = Array.from(infoTable.querySelectorAll('tbody tr'))
+        .map(tr => {
+          const tds = tr.querySelectorAll('td');
+          return `${tds[0].innerText}: ${tds[1].innerText}`;
+        }).join('\n');
+      navigator.clipboard?.writeText(rows).then(()=>{
+        timeBadge.textContent = 'Copied ✓';
+        setTimeout(updateClockBadge, 1500);
+      }).catch(()=> alert('Copy failed. Try again.'));
+    };
+
+    // Live sliders
+    twinkleSlider.oninput = ()=>{
+      const v = parseFloat(twinkleSlider.value);
+      window.TWINKLE_INTENSITY = v;
+      document.getElementById('valTwIntensity').textContent = v.toFixed(2);
+    };
+    moveFractionSlider.oninput = ()=>{
+      const v = parseFloat(moveFractionSlider.value);
+      window.MOVE_FRACTION = v;
+      document.getElementById('valMoveFrac').textContent = (v*100).toFixed(0)+'%';
+      for(const s of bgStars){ s.moving = Math.random() < v; }
+    };
+    moveSpeedSlider.oninput = ()=>{
+      const v = parseFloat(moveSpeedSlider.value);
+      window.MOVE_SPEED = v;
+      document.getElementById('valMoveSpeed').textContent = v.toFixed(2);
+      for(const s of bgStars){
+        if(s.moving){
+          const vscale = v * 0.08;
+          s.vx = (Math.random()-0.5)*vscale;
+          s.vy = (Math.random()-0.5)*vscale*0.7;
+          s.vz = (Math.random()-0.5)*vscale;
+        }
+      }
+    };
+
+    // Alt‑Az + RTS update
+    function updateAltAzAndRTS(lat=23.3700, lon=85.3300){
+      // Alt-Az
+      const now = new Date();
+      const { alt, az } = altaz(now, lat, lon);
+      const altDeg = (alt/DEG).toFixed(2);
+      const azDeg  = (az /DEG).toFixed(2);
+      if(valAltAz) valAltAz.textContent = `${altDeg}°, ${azDeg}°`;
+      if(pillAzEl) pillAzEl.textContent = `${altDeg}°, ${azDeg}°`;
+      if(valObs)   valObs.textContent   = `Lat ${lat.toFixed(4)}°, Lon ${lon.toFixed(4)}°`;
+
+      // Rise / Transit / Set
+      const rts = rtsToday(lat, lon);
+      if(valRise)    valRise.textContent    = rts.rise;
+      if(valTransit) valTransit.textContent = rts.transit;
+      if(valSet)     valSet.textContent     = rts.set;
+    }
+    updateAltAzAndRTS(); // initial (Ranchi default)
+
+    // Geolocation
+    document.getElementById('geoBtn').onclick = ()=>{
+      if(!navigator.geolocation){ alert('Geolocation not supported in this browser.'); return; }
+      navigator.geolocation.getCurrentPosition(
+        pos=>{
+          const { latitude, longitude } = pos.coords;
+          updateAltAzAndRTS(latitude, longitude);
+        },
+        err=>{ alert('Unable to fetch location: ' + err.message); },
+        { enableHighAccuracy:true, timeout:7000, maximumAge:0 }
+      );
+    };
+
+    // Avoid overlap (toolbar & info)
+    function avoidOverlap(){
+      const info = document.getElementById('infoPanel');
+      const bar  = document.getElementById('bar');
+      const ir = info.getBoundingClientRect();
+      const br = bar.getBoundingClientRect();
+      const overl = !(ir.right < br.left || ir.left > br.right) && Math.abs(ir.bottom - br.top) < 16;
+      info.style.marginBottom = overl ? (br.height + 10) + 'px' : '0px';
+    }
+    window.addEventListener('resize', avoidOverlap);
+    setInterval(avoidOverlap, 400);
+
+    // ===== Main draw loop (delta-time for smooth motion) =====
+    let lastTime = performance.now();
+    let twinklePhase = 0;
+    function draw(now = performance.now()){
+      const dt = Math.min(64, now - lastTime);
+      lastTime = now;
+      twinklePhase += 0.008;
+
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+
+      // Soft vignette
+      const bg=ctx.createRadialGradient(canvas.width*0.35,canvas.height*0.25,20,
+                                        canvas.width*0.35,canvas.height*0.25,canvas.width*0.8);
+      bg.addColorStop(0,'rgba(8,12,24,0.50)');
+      bg.addColorStop(1,'rgba(3,6,17,0.95)');
+      ctx.fillStyle=bg; ctx.fillRect(0,0,canvas.width,canvas.height);
+
+      // Background stars: moving subset + fixed subset, all twinkle
+      ctx.globalCompositeOperation='lighter';
+      const twRate = 0.010; // twinkle per ms
+      for(const s of bgStars){
+        if(s.moving){
+          s.x += s.vx*dt; s.y += s.vy*dt; s.z += s.vz*dt;
+          const R = 1000;
+          if (Math.abs(s.x) > R || Math.abs(s.y) > R || Math.abs(s.z) > R) {
+            s.x *= 0.85; s.y *= 0.85; s.z *= 0.85;
+          }
+        }
+        const p=rotate3D({x:s.x,y:s.y,z:s.z}, rotX*0.35, rotY*0.35);
+        const q=project(p);
+        if(q.s>0){
+          s.ph += (TWINKLE ? twRate*s.tw*dt : 0);
+          const pulse = TWINKLE ? (1.0 - TWINKLE_INTENSITY) + TWINKLE_INTENSITY*Math.abs(Math.sin(s.ph)) : 1.0;
+          const rad=(0.8+0.9*pulse)*q.s;
+          const lightNow = s.light * (0.75 + 0.25*pulse);
+          ctx.beginPath(); ctx.arc(q.x,q.y,rad,0,Math.PI*2);
+          ctx.fillStyle=hsl(s.hue, s.sat, lightNow, 0.92);
+          ctx.fill();
+        }
+      }
+      ctx.globalCompositeOperation='source-over';
+
+      // Sirius cinematic glow
+      updateLabelPos();
+      const cx = canvas.width/2 + panX;
+      const cy = canvas.height/2 + panY;
+      const r  = magToRadius(sirius.mag);
+      const tw = 0.85 + 0.15*Math.abs(Math.sin(twinklePhase*1.2));
+
+      // Outer glow
+      const grad = ctx.createRadialGradient(cx, cy, r*0.6, cx, cy, r*3.9);
+      grad.addColorStop(0, siriusColor());
+      grad.addColorStop(1, 'rgba(170,205,255,0)');
+      ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(cx, cy, r*3.9, 0, Math.PI*2); ctx.fill();
+
+      // Halo & spikes
+      drawHalo(cx, cy, r);
+      drawSpikes(cx, cy, r*6.5, 0.22);
+
+      // Core disk
+      ctx.beginPath(); ctx.arc(cx, cy, r*tw, 0, Math.PI*2);
+      ctx.fillStyle = siriusColor(); ctx.fill();
+
+      // Pan inertia
+      panX += panVX*0.10; panY += panVY*0.10;
+      panVX *= 0.92; panVY *= 0.92;
+
+      requestAnimationFrame(draw);
+    }
+    requestAnimationFrame(draw);
+  </script>
+</body>
+</html>

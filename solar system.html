@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Solar System Explorer — Full Interactive</title>
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&display=swap');
+
+/* General */
+html, body {margin:0;height:100%;overflow:hidden;font-family:Orbitron,system-ui;background:radial-gradient(circle at center,#000010 0%,#000000 100%);}
+*{box-sizing:border-box}
+
+/* Header */
+header{
+ position:absolute;top:0;left:0;right:0;z-index:50;
+ height:70px;display:flex;align-items:center;justify-content:space-between;
+ padding:0 20px;
+ background:linear-gradient(180deg, rgba(0,0,0,0.85), rgba(0,0,0,0.2));
+ border-bottom:1px solid rgba(0,255,255,0.3);
+ backdrop-filter: blur(8px);
+}
+header h1{
+ color:#00ffff;
+ font-size:22px;
+ letter-spacing:2px;
+ text-shadow:0 0 10px #00ffff, 0 0 20px #00ffff;
+ margin:0;
+}
+header .subtitle{
+ font-size:12px;
+ color:#fff;
+ opacity:0.8;
+ margin-left:10px;
+}
+header nav{
+ display:flex;gap:12px;
+}
+header nav .nav-btn{
+ padding:6px 14px;
+ border-radius:8px;
+ border:none;
+ background: linear-gradient(145deg,#0f1720,#1a1f2b);
+ color:#00ffff;
+ font-weight:bold;
+ cursor:pointer;
+ transition:0.2s;
+}
+header nav .nav-btn:hover{
+ background: linear-gradient(145deg,#1a1f2b,#0f1720);
+ color:#ffd700;
+}
+
+/* UI Buttons */
+#ui {position:absolute;top:80px;left:12px;z-index:20;display:flex;gap:8px;}
+.btn {
+ background: linear-gradient(145deg,#0f1720,#1a1f2b);
+ color: #00ffff;
+ border: none;
+ padding: 6px 12px;
+ border-radius: 8px;
+ cursor: pointer;
+ font-weight: bold;
+ transition: 0.2s;
+}
+.btn:hover {background: linear-gradient(145deg,#1a1f2b,#0f1720); color: #ffd700;}
+
+/* Info Box */
+#infoBox {
+ position: absolute;
+ right: 12px;
+ bottom: 12px;
+ max-width: 450px;
+ max-height: 450px;
+ overflow-y: auto;
+ padding: 12px;
+ background: rgba(0,0,0,0.75);
+ border: 1px solid #0ff;
+ border-radius: 12px;
+ color: #fff;
+ font-size: 13px;
+ display: none;
+ box-shadow: 0 0 20px #00ffff;
+}
+#infoBox table {width:100%;border-collapse:collapse;margin-bottom:8px;}
+#infoBox th,#infoBox td {border:1px solid #0ff;padding:5px;text-align:center;}
+#infoBox th {background:#003333;}
+#infoBox h2 {text-align:center;color:#00ffff;margin:4px 0;text-shadow:0 0 8px #00ffff;}
+#infoBox h3 {color:#ffd700;margin:6px 0 4px;text-shadow:0 0 6px #ffd700;}
+</style>
+</head>
+
+<body>
+<header>
+ <div style="display:flex;align-items:center;">
+  <h1>Solar System Explorer</h1>
+  <div class="subtitle">Interactive 3D • Scientific Data • Click Planets</div>
+ </div>
+ 
+ 
+ <nav>
+  <a href="home.html"><button class="nav-btn">Home</button></a>
+  <a href="about.html"><button class="nav-btn">About</button></a>
+  <a href="contact.html"><button class="nav-btn">Contact</button></a> 
+  <a href="final galaxy.html"><button class="nav-btn">Explore</button></a>
+</nav>
+
+
+
+</header>
+
+<div id="ui">
+ <button class="btn" id="togglePlayPause">Pause ❚❚</button>
+ <button class="btn" id="resetCam">Reset View</button>
+ <button class="btn" id="toggleAst">Asteroids</button>
+ <button class="btn" id="toggleKuiper">Kuiper Belt</button>
+</div>
+
+<div id="infoBox"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/controls/OrbitControls.js"></script>
+
+<script>
+// ================= SCENE SETUP =================
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 20000);
+camera.position.set(0, 320, 980);
+
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(innerWidth,innerHeight);
+document.body.appendChild(renderer.domElement);
+
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+
+// ================= LIGHTS =================
+scene.add(new THREE.AmbientLight(0x333333));
+const sunLight = new THREE.PointLight(0xffffff, 2.4);
+scene.add(sunLight);
+
+// ================= SUN WITH SURFACE EFFECT =================
+const sunGeometry = new THREE.SphereGeometry(60, 64, 64);
+
+const sunMaterial = new THREE.ShaderMaterial({
+ uniforms: {
+   time: { value: 0 }
+ },
+ vertexShader: `
+   varying vec3 vNormal;
+   varying vec3 vPosition;
+   void main() {
+     vNormal = normal;
+     vPosition = position;
+     gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0);
+   }
+ `,
+ fragmentShader: `
+   uniform float time;
+   varying vec3 vNormal;
+   varying vec3 vPosition;
+   
+   void main() {
+     float glow = 0.5 + 0.5*sin(10.0*(vNormal.y + time));
+     vec3 color = mix(vec3(1.0,0.6,0.0), vec3(1.0,1.0,0.2), glow);
+     gl_FragColor = vec4(color,1.0);
+   }
+ `
+});
+const sun = new THREE.Mesh(sunGeometry, sunMaterial);
+scene.add(sun);
+
+
+
+
+// 🔴🔴🔴 EARTH REAL MAP TEXTURE (ADD HERE)
+const textureLoader = new THREE.TextureLoader();
+const earthMap = textureLoader.load(
+  "https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg"
+);
+
+
+
+// ================= ORBITS =================
+function createOrbit(r){
+ const pts=[];
+ for(let i=0;i<=360;i++){
+  const a=THREE.MathUtils.degToRad(i);
+  pts.push(new THREE.Vector3(Math.cos(a)*r,0,Math.sin(a)*r));
+ }
+ const orbit = new THREE.Line(
+  new THREE.BufferGeometry().setFromPoints(pts),
+  new THREE.LineBasicMaterial({color:0x4466ff,transparent:true,opacity:.35})
+ );
+ scene.add(orbit);
+}
+
+
+
+
+
+
+// ================= PLANETS =================
+const planetDefs = [
+ {name:'Mercury',size:6,dist:90,speed:.016,col:0x9e9e9e},
+ {name:'Venus',size:9,dist:130,speed:.009,col:0xd4b483},
+ {name:'Earth',size:12,dist:180,speed:.0075,col:0x2f6fbf},
+ {name:'Mars',size:10,dist:230,speed:.0065,col:0xff6b4a},
+ {name:'Jupiter',size:26,dist:320,speed:.0042,col:0xe0b07a},
+ {name:'Saturn',size:22,dist:420,speed:.0033,col:0xe6c27a,ring:true},
+ {name:'Uranus',size:16,dist:520,speed:.0024,col:0x7fc6d6,ring:true},
+ {name:'Neptune',size:15,dist:620,speed:.0019,col:0x2f5fb4}
+];
+
+
+
+
+
+const planets = [];
+let earthMesh = null;
+
+planetDefs.forEach(p=>{
+
+ createOrbit(p.dist);
+ const g = new THREE.Group();
+ 
+
+
+// 🔴🔴🔴 EARTH SPECIAL MATERIAL (ONLY CHANGE)
+const material = (p.name === "Earth")
+ ? new THREE.MeshStandardMaterial({
+     map: earthMap,        // 🌍 REAL EARTH MAP (COUNTRIES)
+     roughness: 0.9,
+     metalness: 0
+   })
+ : new THREE.MeshStandardMaterial({
+     color: p.col,
+     roughness: .4,
+     metalness: .1
+   });
+
+const m = new THREE.Mesh(
+  new THREE.SphereGeometry(p.size, 40, 40),
+  material
+);
+
+// 🔴 EARTH REFERENCE SAVE
+if(p.name === "Earth"){
+  earthMesh = m;
+}
+
+
+ m.position.x = p.dist;
+ g.add(m);
+
+
+
+ if(p.ring){
+  const ringColor = (p.name==='Uranus') ? 0x3399ff : 0xffd27f;
+  const ring = new THREE.Mesh(
+   new THREE.RingGeometry(p.size+3, p.size+7, 96),
+   new THREE.MeshStandardMaterial({color:ringColor, side:THREE.DoubleSide, transparent:true, opacity:0.75})
+  );
+  ring.rotation.x = (p.name==='Uranus')?0:Math.PI/2;
+  m.add(ring);
+ }
+ scene.add(g);
+ planets.push({def:p, mesh:m, group:g});
+});
+
+// ================= ASTEROIDS & KUIPER =================
+const asteroidGroup = new THREE.Group(); scene.add(asteroidGroup);
+for(let i=0;i<400;i++){
+ const a=Math.random()*Math.PI*2,r=260+Math.random()*40;
+ const s=new THREE.Mesh(new THREE.SphereGeometry(1,6,6), new THREE.MeshStandardMaterial({color:0x888888}));
+ s.position.set(Math.cos(a)*r,(Math.random()-.5)*2,Math.sin(a)*r);
+ asteroidGroup.add(s);
+}
+const kuiperGroup = new THREE.Group(); scene.add(kuiperGroup);
+for(let i=0;i<600;i++){
+ const a=Math.random()*Math.PI*2,r=760+Math.random()*160;
+ const s=new THREE.Mesh(new THREE.SphereGeometry(.8,6,6), new THREE.MeshStandardMaterial({color:0x99ccff}));
+ s.position.set(Math.cos(a)*r,(Math.random()-.5)*4,Math.sin(a)*r);
+ kuiperGroup.add(s);
+}
+
+// ================= PLANET DATA =================
+const sunData = { diameter:"1,392,700 km", mass:"1.989 × 10³⁰ kg", surfaceTemp:"≈ 5,500 °C", coreTemp:"≈ 15 million °C", rotation:"≈ 25 days", type:"G-Type Main-Sequence Star" };
+const planetData = {
+ Mercury:{diameter:"4,880 km",mass:"3.30×10²³ kg",temp:"167°C",rotation:"59 days",revolution:"88 days",type:"Rocky",moons:[]},
+ Venus:{diameter:"12,104 km",mass:"4.87×10²⁴ kg",temp:"464°C",rotation:"243 days",revolution:"225 days",type:"Rocky",moons:[]},
+ Earth:{diameter:"12,742 km",mass:"5.97×10²⁴ kg",temp:"15°C",rotation:"24 hrs",revolution:"365 days",type:"Rocky",moons:[{name:"Moon"}]},
+ Mars:{diameter:"6,779 km",mass:"6.42×10²³ kg",temp:"-63°C",rotation:"24.6 hrs",revolution:"687 days",type:"Rocky",moons:[{name:"Phobos"},{name:"Deimos"}]},
+ Jupiter:{diameter:"142,984 km",mass:"1.898×10²⁷ kg",temp:"-145°C",rotation:"10 hrs",revolution:"11.9 yrs",type:"Gas Giant",moons:[{name:"Io"},{name:"Europa"},{name:"Ganymede"},{name:"Callisto"}]},
+ Saturn:{diameter:"120,536 km",mass:"5.68×10²⁶ kg",temp:"-178°C",rotation:"10.7 hrs",revolution:"29.5 yrs",type:"Gas Giant",moons:[{name:"Titan"},{name:"Rhea"}]},
+ Uranus:{diameter:"51,118 km",mass:"8.68×10²⁵ kg",temp:"-216°C",rotation:"17.2 hrs",revolution:"84 yrs",type:"Ice Giant",moons:[{name:"Titania"},{name:"Oberon"}]},
+ Neptune:{diameter:"49,244 km",mass:"1.02×10²⁶ kg",temp:"-214°C",rotation:"16.1 hrs",revolution:"165 yrs",type:"Ice Giant",moons:[{name:"Triton"}]}
+};
+
+// ================= INFO BOX =================
+const infoBox = document.getElementById("infoBox");
+function showSunInfo(){infoBox.innerHTML=`<h2>Sun</h2><table><tr><th>Property</th><th>Value</th></tr>${Object.entries(sunData).map(d=>`<tr><td>${d[0]}</td><td>${d[1]}</td></tr>`).join('')}</table>`;infoBox.style.display='block';}
+function showPlanetInfo(name){
+ const p=planetData[name];
+ let html=`<h2>${name}</h2><table><tr><th>Property</th><th>Value</th></tr>
+ <tr><td>Diameter</td><td>${p.diameter}</td></tr>
+ <tr><td>Mass</td><td>${p.mass}</td></tr>
+ <tr><td>Temperature</td><td>${p.temp}</td></tr>
+ <tr><td>Rotation</td><td>${p.rotation}</td></tr>
+ <tr><td>Revolution</td><td>${p.revolution}</td></tr>
+ <tr><td>Type</td><td>${p.type}</td></tr></table>`;
+ if(p.moons.length){html+=`<h3>Moons</h3><table><tr><th>Name</th></tr>${p.moons.map(m=>`<tr><td>${m.name}</td></tr>`).join('')}</table>`;}
+ infoBox.innerHTML=html; infoBox.style.display='block';
+}
+
+// ================= CLICK =================
+addEventListener("click", e=>{
+ const mouse = new THREE.Vector2(e.clientX/innerWidth*2-1, -(e.clientY/innerHeight)*2+1);
+ const ray = new THREE.Raycaster();
+ ray.setFromCamera(mouse,camera);
+ if(ray.intersectObject(sun).length){showSunInfo();return;}
+ const hit=ray.intersectObjects(planets.map(p=>p.mesh));
+ if(hit.length) showPlanetInfo(planets.find(p=>p.mesh===hit[0].object).def.name);
+ else infoBox.style.display='none';
+});
+
+
+
+
+// ================= ANIMATION =================
+
+let paused=false;
+togglePlayPause.onclick = ()=>{paused=!paused;togglePlayPause.innerText = paused?'Play ▶':'Pause ❚❚';}
+
+
+function animate(){
+ requestAnimationFrame(animate);
+ sunMaterial.uniforms.time.value += 0.02; // animate sun surface
+
+
+
+ if(!paused){
+  
+
+   planets.forEach(p=>p.group.rotation.y+=p.def.speed);
+  asteroidGroup.rotation.y+=0.001;
+  kuiperGroup.rotation.y+=0.0004;
+  sun.rotation.y+=0.0008;
+ 
+
+if(earthMesh) earthMesh.rotation.y += 0.0075 * 365;
+
+ }
+ controls.update();
+ renderer.render(scene,camera);
+}
+animate();
+
+
+
+// ================= UI BUTTONS =================
+resetCam.onclick = ()=>{camera.position.set(0,320,980);controls.target.set(0,0,0);controls.update();}
+toggleAst.onclick = ()=>asteroidGroup.visible=!asteroidGroup.visible;
+toggleKuiper.onclick = ()=>kuiperGroup.visible=!kuiperGroup.visible;
+addEventListener("resize",()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
+</script>
+</body>
+</html>
